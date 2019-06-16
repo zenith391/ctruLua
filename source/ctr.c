@@ -10,6 +10,7 @@ The `ctr` module.
 #include <3ds/services/apt.h>
 #include <3ds/os.h>
 #include <3ds/svc.h>
+#include <3ds/services/hb.h>
 
 #include <lua.h>
 #include <lauxlib.h>
@@ -137,6 +138,13 @@ void load_uds_lib(lua_State *L);
 void unload_uds_lib(lua_State *L);
 
 /***
+The `ctr.swkbd` module.
+@table swkbd
+@see ctr.swkbd
+*/
+void load_swkbd_lib(lua_State *L);
+
+/***
 Return whether or not the program should continue.
 @function run
 @treturn boolean `false` if the program should exist or `true` if it can continue
@@ -207,6 +215,7 @@ struct { char *name; void (*load)(lua_State *L); void (*unload)(lua_State *L); }
 	{ "mic",    load_mic_lib,    NULL             },
 	{ "thread", load_thread_lib, NULL             },
 	{ "uds",    load_uds_lib,    unload_uds_lib   },
+	{ "swkbd",  load_swkbd_lib,  NULL             },
 	{ NULL, NULL, NULL }
 };
 
@@ -244,6 +253,18 @@ int luaopen_ctr_lib(lua_State *L) {
 	#endif
 	lua_pushstring(L, buff);
 	lua_setfield(L, -2, "root");
+	
+	/***
+	Whether or not ctrµLua has been launched with ninjhax
+	@field hb
+	*/
+	if (!hbInit()) {
+		hbExit();
+		lua_pushboolean(L, true);
+	} else {
+		lua_pushboolean(L, false);
+	}
+	lua_setfield(L, -2, "hb");
 
 	return 1;
 }
