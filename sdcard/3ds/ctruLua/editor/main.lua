@@ -58,8 +58,9 @@ local function drawTop(eye)
 	for i = sI, eI, 1 do
 		local x = -scrollX
 		local y = -scrollY+ (i-1)*lineHeight
-
-		for _,colored in ipairs(coloredLines[i]) do
+		gfx.text(x, y, tostring(i), fontSize)
+		x = x + font:width(tostring(i)) + 12
+		for i,colored in ipairs(coloredLines[i]) do
 			local str = displayedText(colored[1])
 			gfx.text(x + d(#(lines[i]:match("^%s+") or "")*3), y, str, fontSize, colored[2])
 			x = x + font:width(str)
@@ -68,7 +69,7 @@ local function drawTop(eye)
 
 	-- Cursor
 	local curline = lines[cursorY]
-	gfx.rectangle(-scrollX+ font:width(displayedText(curline:sub(1, (utf8.offset(curline, cursorX) or 0)-1))) + d(#(curline:match("^%s+") or "")*3), 
+	gfx.rectangle(-scrollX+ font:width(displayedText(curline:sub(1, (utf8.offset(curline, cursorX) or 0)-1))) + d(#(curline:match("^%s+") or "")*3)+font:width(tostring(cursorY))+12, 
 	              -scrollY+ (cursorY-1)*lineHeight, 1, lineHeight, 0, color.cursor)
 end
 
@@ -79,6 +80,24 @@ gfx.color.setBackground(color.background)
 gfx.font.setDefault(font)
 gfx.font.setSize(fontSize)
 
+local function cursorChecks()
+	if cursorY < 1 then
+		cursorY = 1
+	end
+	if cursorY > #lines then
+		cursorY = #lines
+	end
+	if cursorX < 1 then
+		cursorX = 1
+	end
+	if cursorX > utf8.len(lines[cursorY])+1 then
+		if cursorY < #lines then
+			cursorX, cursorY = 1, cursorY + 1
+		else
+			cursorX = cursorX - 1
+		end
+	end
+end
 while ctr.run() do
 	hid.read()
 	local keys = hid.keys()
@@ -132,7 +151,15 @@ while ctr.run() do
 	end
 	if keys.down.dUp and cursorY > 1 then cursorY = cursorY - 1 end
 	if keys.down.dDown and cursorY < #lines then cursorY = cursorY + 1 end
-	
+	if keys.held.r then
+		cursorY = math.floor(scrollY/lineHeight)+1
+		if cursorY > #lines then
+		  cursorY = #lines
+		end
+		if cursorY < 1 then
+			cursorY = 1
+		end
+	end
 	if keys.held.cpadRight or keys.held.a then scrollX = scrollX + 3 end
 	if keys.held.cpadLeft or keys.held.y then scrollX = scrollX - 3 end
 	if keys.held.cpadUp or keys.held.x then scrollY = scrollY - 3 end
@@ -171,6 +198,7 @@ while ctr.run() do
 		if input == "\b" then
 			if cursorX > utf8.len(lines[cursorY])+1 then cursorX = utf8.len(lines[cursorY])+1 end
 			if cursorX > 1 then
+				cursorChecks()
 				lines[cursorY] = lines[cursorY]:sub(1, utf8.offset(lines[cursorY], cursorX-1)-1)..
 				                 lines[cursorY]:sub(utf8.offset(lines[cursorY], cursorX), -1)
 				cursorX = cursorX - 1
@@ -196,6 +224,7 @@ while ctr.run() do
 			cursorX, cursorY = whitespace and #whitespace+1 or 1, cursorY + 1
 
 		else
+			cursorChecks()
 			lines[cursorY] = lines[cursorY]:sub(1, utf8.offset(lines[cursorY], cursorX)-1)..input..
 			                 lines[cursorY]:sub(utf8.offset(lines[cursorY], cursorX), -1)
 			coloredLines[cursorY] = syntax(lines[cursorY], color)
@@ -222,7 +251,7 @@ while ctr.run() do
 		gfx.text(3, 3, "FPS: "..math.ceil(gfx.getFPS()))
 		gfx.text(3, 3 + lineHeight, "Press select to save.")
 		gfx.text(3, 3 + lineHeight*2, "Press start to exit.")
-		
+		gfx.text(3, 3 + lineHeight*3, "Cursor: " .. tostring(cursorX) .. ", " .. tostring(cursorY))
 		keyboard.draw(4, 115)
 		
 	gfx.stop()
