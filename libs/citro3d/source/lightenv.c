@@ -1,5 +1,4 @@
-#include <string.h>
-#include "context.h"
+#include "internal.h"
 
 static void C3Di_LightEnvMtlBlend(C3D_LightEnv* env)
 {
@@ -41,14 +40,16 @@ static void C3Di_LightEnvSelectLayer(C3D_LightEnv* env)
 	if (reg & (0xFF<< 8)) reg |= GPU_LC1_LUTBIT(GPU_LUT_SP);
 	if (reg & (0xFF<<24)) reg |= GPU_LC1_LUTBIT(GPU_LUT_DA);
 	reg = (reg >> 16) & 0xFF;
-	int i;
-	for (i = 0; i < 7; i ++)
-		if ((layer_enabled[i] & reg) == reg) // Check if the layer supports all LUTs we need
-			break;
+
+	int i = 7;
+	if (!(env->flags & C3DF_LightEnv_IsCP_Any))
+		for (i = 0; i < 7; i ++)
+			if ((layer_enabled[i] & reg) == reg) // Check if the layer supports all LUTs we need
+				break;
 	env->conf.config[0] = (env->conf.config[0] &~ (0xF<<4)) | (GPU_LIGHT_ENV_LAYER_CONFIG(i)<<4);
 }
 
-static void C3Di_LightEnvUpdate(C3D_LightEnv* env)
+void C3Di_LightEnvUpdate(C3D_LightEnv* env)
 {
 	int i;
 	C3D_LightEnvConf* conf = &env->conf;
@@ -130,7 +131,7 @@ static void C3Di_LightEnvUpdate(C3D_LightEnv* env)
 	}
 }
 
-static void C3Di_LightEnvDirty(C3D_LightEnv* env)
+void C3Di_LightEnvDirty(C3D_LightEnv* env)
 {
 	env->flags |= C3DF_LightEnv_Dirty;
 	int i;
@@ -153,12 +154,11 @@ static void C3Di_LightEnvDirty(C3D_LightEnv* env)
 void C3D_LightEnvInit(C3D_LightEnv* env)
 {
 	memset(env, 0, sizeof(*env));
-	env->Update = C3Di_LightEnvUpdate;
-	env->Dirty = C3Di_LightEnvDirty;
-
 	env->flags = C3DF_LightEnv_Dirty;
+	env->ambient[0] = env->ambient[1] = env->ambient[2] = 1.0f;
 	env->conf.config[0] = (4<<8) | BIT(27) | BIT(31);
 	env->conf.config[1] = ~0;
+	env->conf.lutInput.select = GPU_LIGHTLUTINPUT(GPU_LUT_SP, GPU_LUTINPUT_SP);
 	env->conf.lutInput.abs = 0x2222222;
 }
 
@@ -196,7 +196,7 @@ void C3D_LightEnvAmbient(C3D_LightEnv* env, float r, float g, float b)
 	env->flags |= C3DF_LightEnv_MtlDirty;
 }
 
-void C3D_LightEnvLut(C3D_LightEnv* env, int lutId, int input, bool abs, C3D_LightLut* lut)
+void C3D_LightEnvLut(C3D_LightEnv* env, GPU_LIGHTLUTID lutId, GPU_LIGHTLUTINPUT input, bool negative, C3D_LightLut* lut)
 {
 	static const s8 ids[] = { 0, 1, -1, 2, 3, 4, 5, -1 };
 	int id = ids[lutId];
@@ -208,7 +208,10 @@ void C3D_LightEnvLut(C3D_LightEnv* env, int lutId, int input, bool abs, C3D_Ligh
 			env->conf.config[1] &= ~GPU_LC1_LUTBIT(lutId);
 			env->flags |= C3DF_LightEnv_LutDirty(id);
 		} else
+		{
+			env->conf.config[1] |= GPU_LC1_LUTBIT(lutId);
 			env->luts[id] = NULL;
+		}
 	}
 
 	env->conf.lutInput.select &= ~GPU_LIGHTLUTINPUT(lutId, 0xF);
@@ -216,10 +219,14 @@ void C3D_LightEnvLut(C3D_LightEnv* env, int lutId, int input, bool abs, C3D_Ligh
 
 	u32 absbit = 1 << (lutId*4 + 1);
 	env->conf.lutInput.abs &= ~absbit;
-	if (!abs)
+	if (negative)
 		env->conf.lutInput.abs |= absbit;
 
 	env->flags |= C3DF_LightEnv_Dirty;
+	if (input == GPU_LUTINPUT_CP)
+		env->flags |= C3DF_LightEnv_IsCP(lutId);
+	else
+		env->flags &= ~C3DF_LightEnv_IsCP(lutId);
 }
 
 void C3D_LightEnvFresnel(C3D_LightEnv* env, GPU_FRESNELSEL selector)
@@ -246,9 +253,9 @@ void C3D_LightEnvBumpSel(C3D_LightEnv* env, int texUnit)
 void C3D_LightEnvShadowMode(C3D_LightEnv* env, u32 mode)
 {
 	mode &= 0xF<<16;
-	if (mode & (GPU_SHADOW_PRIMARY | GPU_INVERT_SHADOW | GPU_SHADOW_ALPHA))
+	if (mode & (GPU_SHADOW_PRIMARY | GPU_SHADOW_SECONDARY | GPU_SHADOW_ALPHA))
 		mode |= BIT(0);
-	env->conf.config[0] &= ~((3<<28) | BIT(0));
+	env->conf.config[0] &= ~((0xF<<16) | BIT(0));
 	env->conf.config[0] |= mode;
 	env->flags |= C3DF_LightEnv_Dirty;
 }

@@ -1,3 +1,4 @@
+.*/
 *~
 *.3dsx
 *.elf
@@ -6,5 +7,9 @@
 *.tar.bz2
 Thumbs.db
 build/
+deps/
+release/
+debug/
 lib/
 bin/
+doc/

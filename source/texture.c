@@ -3,11 +3,10 @@ The `gfx.texture` module.
 @module ctr.gfx.texture
 @usage local texture = require("ctr.gfx.texture")
 */
-#include <sf2d.h>
-#include <sfil.h>
 
 #include <lapi.h>
 #include <lauxlib.h>
+#include <3ds/types.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -16,7 +15,7 @@ The `gfx.texture` module.
 #include <stb_image.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
-#include <png.h>
+//#include <png.h>
 
 #include "texture.h"
 
@@ -49,7 +48,7 @@ Load a texture from a file. Supported formats: PNG, JPEG, BMP, GIF, PSD, TGA, HD
 */
 static int texture_load(lua_State *L) {
 	const char *path = luaL_checkstring(L, 1);
-	u8 place = luaL_optinteger(L, 2, SF2D_PLACE_RAM); //place in ram by default
+	u8 place = luaL_optinteger(L, 2, 3); //place in ram by default
 	u8 type = luaL_optinteger(L, 3, 3); //type 3 is "search at the end of the filename"
 
 	texture_userdata *texture;
@@ -59,12 +58,12 @@ static int texture_load(lua_State *L) {
 	lua_setmetatable(L, -2);
 
 	if (type==3) type = getType(path);
-	if (type==0) { //PNG
-		texture->texture = sfil_load_PNG_file(path, place);
-	} else if (type==1) { //JPEG
-		texture->texture = sfil_load_JPEG_file(path, place);
-	} else if (type==2) { //BMP
-		texture->texture = sfil_load_BMP_file(path, place); //appears to be broken right now.
+	if (type==0 && false) { //PNG
+		//texture->texture = sfil_load_PNG_file(path, place);
+	} else if (type==1 && false) { //JPEG
+		//texture->texture = sfil_load_JPEG_file(path, place);
+	} else if (type==2 && false) { //BMP
+		//texture->texture = sfil_load_BMP_file(path, place); //appears to be broken right now.
 	} else {
 		int w, h;
 		char* data = (char*)stbi_load(path, &w, &h, NULL, 4);
@@ -306,6 +305,7 @@ static int texture_save(lua_State *L) {
 
 	int result = 0;
 	if (type == 0) { // PNG
+		/*
 		FILE* file = fopen(path, "wb");
 		if (file == NULL) {
 			lua_pushboolean(L, false);
@@ -335,9 +335,8 @@ static int texture_save(lua_State *L) {
 		png_free_data(png, infos, PNG_FREE_ALL, -1);
 		png_destroy_write_struct(&png, &infos);
 		free(row);
-
 		result = 1;
-
+		*/
 	} else if (type == 2) { // BMP
 		u32* buff = malloc(texture->texture->width * texture->texture->height * 4);
 		if (buff == NULL) {
@@ -403,12 +402,12 @@ struct { char *name; int value; } texture_constants[] = {
 	Constant used to select the RAM.
 	@field PLACE_RAM
 	*/
-	{"PLACE_RAM",  SF2D_PLACE_RAM },
+	{"PLACE_RAM",  3},
 	/***
 	Constant used to select the VRAM.
 	@field PLACE_VRAM
 	*/
-	{"PLACE_VRAM", SF2D_PLACE_VRAM},
+	{"PLACE_VRAM", 4},
 	/***
 	Constant used to select the PNG type.
 	@field TYPE_PNG

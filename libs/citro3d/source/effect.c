@@ -1,4 +1,4 @@
-#include "context.h"
+#include "internal.h"
 
 static inline C3D_Effect* getEffect()
 {
@@ -7,9 +7,10 @@ static inline C3D_Effect* getEffect()
 	return &ctx->effect;
 }
 
-void C3D_DepthMap(float zScale, float zOffset)
+void C3D_DepthMap(bool bIsZBuffer, float zScale, float zOffset)
 {
 	C3D_Effect* e = getEffect();
+	e->zBuffer = bIsZBuffer;
 	e->zScale  = f32tof24(zScale);
 	e->zOffset = f32tof24(zOffset);
 }
@@ -36,6 +37,14 @@ void C3D_BlendingColor(u32 color)
 {
 	C3D_Effect* e = getEffect();
 	e->blendClr = color;
+}
+
+void C3D_EarlyDepthTest(bool enable, GPU_EARLYDEPTHFUNC function, u32 ref)
+{
+	C3D_Effect* e = getEffect();
+	e->earlyDepth = enable;
+	e->earlyDepthFunc = function;
+	e->earlyDepthRef = ref;
 }
 
 void C3D_DepthTest(bool enable, GPU_TESTFUNC function, GPU_WRITEMASK writemask)
@@ -72,18 +81,26 @@ void C3D_FragOpMode(GPU_FRAGOPMODE mode)
 	e->fragOpMode |= 0xE40000 | mode;
 }
 
+void C3D_FragOpShadow(float scale, float bias)
+{
+	C3D_Effect* e = getEffect();
+	e->fragOpShadow = f32tof16(scale+bias) | (f32tof16(-scale)<<16);
+}
+
 void C3Di_EffectBind(C3D_Effect* e)
 {
-	GPUCMD_AddWrite(GPUREG_DEPTHMAP_ENABLE, 1);
+	GPUCMD_AddWrite(GPUREG_DEPTHMAP_ENABLE, e->zBuffer ? 1 : 0);
 	GPUCMD_AddWrite(GPUREG_FACECULLING_CONFIG, e->cullMode & 0x3);
 	GPUCMD_AddIncrementalWrites(GPUREG_DEPTHMAP_SCALE, (u32*)&e->zScale, 2);
 	GPUCMD_AddIncrementalWrites(GPUREG_FRAGOP_ALPHA_TEST, (u32*)&e->alphaTest, 4);
+	GPUCMD_AddMaskedWrite(GPUREG_GAS_DELTAZ_DEPTH, 0x8, (u32)GPU_MAKEGASDEPTHFUNC((e->depthTest>>4)&7) << 24);
 	GPUCMD_AddWrite(GPUREG_BLEND_COLOR, e->blendClr);
 	GPUCMD_AddWrite(GPUREG_BLEND_FUNC, e->alphaBlend);
 	GPUCMD_AddWrite(GPUREG_LOGIC_OP, e->clrLogicOp);
 	GPUCMD_AddMaskedWrite(GPUREG_COLOR_OPERATION, 7, e->fragOpMode);
-
-	// Disable early depth test?
-	GPUCMD_AddMaskedWrite(GPUREG_EARLYDEPTH_TEST1, 1, 0);
-	GPUCMD_AddWrite(GPUREG_EARLYDEPTH_TEST2, 0);
+	GPUCMD_AddWrite(GPUREG_FRAGOP_SHADOW, e->fragOpShadow);
+	GPUCMD_AddMaskedWrite(GPUREG_EARLYDEPTH_TEST1, 1, e->earlyDepth ? 1 : 0);
+	GPUCMD_AddWrite(GPUREG_EARLYDEPTH_TEST2, e->earlyDepth ? 1 : 0);
+	GPUCMD_AddMaskedWrite(GPUREG_EARLYDEPTH_FUNC, 1, e->earlyDepthFunc);
+	GPUCMD_AddMaskedWrite(GPUREG_EARLYDEPTH_DATA, 0x7, e->earlyDepthRef);
 }

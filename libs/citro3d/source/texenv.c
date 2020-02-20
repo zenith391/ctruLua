@@ -1,19 +1,4 @@
-#include <c3d/texenv.h>
-#include <string.h>
-#include "context.h"
-
-void TexEnv_Init(C3D_TexEnv* env)
-{
-	env->srcRgb = GPU_TEVSOURCES(GPU_PREVIOUS, 0, 0);
-	env->srcAlpha = env->srcRgb;
-	env->opRgb = GPU_TEVOPERANDS(0,0,0);
-	env->opAlpha = env->opRgb;
-	env->funcRgb = GPU_REPLACE;
-	env->funcAlpha = env->funcRgb;
-	env->color = 0xFFFFFFFF;
-	env->scaleRgb = GPU_TEVSCALE_1;
-	env->scaleAlpha = GPU_TEVSCALE_1;
-}
+#include "internal.h"
 
 C3D_TexEnv* C3D_GetTexEnv(int id)
 {
@@ -33,8 +18,23 @@ void C3D_SetTexEnv(int id, C3D_TexEnv* env)
 	if (!(ctx->flags & C3DiF_Active))
 		return;
 
-	memcpy(&ctx->texEnv[id], env, sizeof(*env));
 	ctx->flags |= C3DiF_TexEnv(id);
+	if (env)
+		memcpy(&ctx->texEnv[id], env, sizeof(*env));
+	else
+		C3D_TexEnvInit(&ctx->texEnv[id]);
+}
+
+void C3D_DirtyTexEnv(C3D_TexEnv* env)
+{
+	C3D_Context* ctx = C3Di_GetContext();
+
+	if (!(ctx->flags & C3DiF_Active))
+		return;
+
+	u32 id = env-ctx->texEnv;
+	if (id < 6)
+		ctx->flags |= C3DiF_TexEnv(id);
 }
 
 void C3Di_TexEnvBind(int id, C3D_TexEnv* env)

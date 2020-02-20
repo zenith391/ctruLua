@@ -1,5 +1,5 @@
+#include "internal.h"
 #include <c3d/uniforms.h>
-//#include <stdio.h>
 
 C3D_FVec C3D_FVUnif[2][C3D_FVUNIF_COUNT];
 C3D_IVec C3D_IVUnif[2][C3D_IVUNIF_COUNT];
@@ -63,7 +63,7 @@ void C3D_UpdateUniforms(GPU_SHADER_TYPE type)
 		}
 
 		// Advance
-		i += j;
+		i = j;
 	}
 
 	// Update IVec uniforms

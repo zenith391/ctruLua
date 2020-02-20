@@ -1,6 +1,4 @@
-#include <string.h>
-#include "context.h"
-#include <c3d/maths.h>
+#include "internal.h"
 
 void C3Di_LightMtlBlend(C3D_Light* light)
 {
@@ -11,10 +9,10 @@ void C3Di_LightMtlBlend(C3D_Light* light)
 
 	for (i = 0; i < 3; i ++)
 	{
-		conf->specular0 |= ((u32)(255*(mtl->specular0[i]*light->color[i]))) << (i*10);
-		conf->specular1 |= ((u32)(255*(mtl->specular1[i]*light->color[i]))) << (i*10);
-		conf->diffuse   |= ((u32)(255*(mtl->diffuse[i]  *light->color[i]))) << (i*10);
-		conf->ambient   |= ((u32)(255*(mtl->ambient[i]  *light->color[i]))) << (i*10);
+		conf->specular0 |= ((u32)(255*(mtl->specular0[i]*light->specular0[i]))) << (i*10);
+		conf->specular1 |= ((u32)(255*(mtl->specular1[i]*light->specular1[i]))) << (i*10);
+		conf->diffuse   |= ((u32)(255*(mtl->diffuse[i]  *light->diffuse[i])))   << (i*10);
+		conf->ambient   |= ((u32)(255*(mtl->ambient[i]  *light->ambient[i])))   << (i*10);
 	}
 }
 
@@ -32,6 +30,9 @@ int C3D_LightInit(C3D_Light* light, C3D_LightEnv* env)
 	light->flags = C3DF_Light_Enabled | C3DF_Light_Dirty | C3DF_Light_MatDirty;
 	light->id = i;
 	light->parent = env;
+	light->diffuse[0]   = light->diffuse[1]   = light->diffuse[2]   = 1.0f;
+	light->specular0[0] = light->specular0[1] = light->specular0[2] = 1.0f;
+	light->specular1[0] = light->specular1[1] = light->specular1[2] = 1.0f;
 
 	env->flags |= C3DF_LightEnv_LCDirty;
 	return i;
@@ -69,11 +70,35 @@ void C3D_LightGeoFactor(C3D_Light* light, int id, bool enable)
 	light->flags |= C3DF_Light_Dirty;
 }
 
-void C3D_LightColor(C3D_Light* light, float r, float g, float b)
+void C3D_LightAmbient(C3D_Light* light, float r, float g, float b)
 {
-	light->color[0] = b;
-	light->color[1] = g;
-	light->color[2] = r;
+	light->ambient[0] = b;
+	light->ambient[1] = g;
+	light->ambient[2] = r;
+	light->flags |= C3DF_Light_MatDirty;
+}
+
+void C3D_LightDiffuse(C3D_Light* light, float r, float g, float b)
+{
+	light->diffuse[0] = b;
+	light->diffuse[1] = g;
+	light->diffuse[2] = r;
+	light->flags |= C3DF_Light_MatDirty;
+}
+
+void C3D_LightSpecular0(C3D_Light* light, float r, float g, float b)
+{
+	light->specular0[0] = b;
+	light->specular0[1] = g;
+	light->specular0[2] = r;
+	light->flags |= C3DF_Light_MatDirty;
+}
+
+void C3D_LightSpecular1(C3D_Light* light, float r, float g, float b)
+{
+	light->specular1[0] = b;
+	light->specular1[1] = g;
+	light->specular1[2] = r;
 	light->flags |= C3DF_Light_MatDirty;
 }
 
@@ -81,7 +106,7 @@ void C3D_LightPosition(C3D_Light* light, C3D_FVec* pos)
 {
 	// Enable/disable positional light depending on W coordinate
 	light->conf.config &= ~BIT(0);
-	light->conf.config |= (pos->w == 0.0);
+	light->conf.config |= (pos->w == 0.0f);
 	light->conf.position[0] = f32tof16(pos->x);
 	light->conf.position[1] = f32tof16(pos->y);
 	light->conf.position[2] = f32tof16(pos->z);

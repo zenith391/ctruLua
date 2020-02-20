@@ -9,7 +9,7 @@ endif
 include $(DEVKITARM)/3ds_rules
 
 export CITRO3D_MAJOR	:= 1
-export CITRO3D_MINOR	:= 1
+export CITRO3D_MINOR	:= 5
 export CITRO3D_PATCH	:= 0
 
 VERSION	:=	$(CITRO3D_MAJOR).$(CITRO3D_MINOR).$(CITRO3D_PATCH)
@@ -22,9 +22,7 @@ VERSION	:=	$(CITRO3D_MAJOR).$(CITRO3D_MINOR).$(CITRO3D_PATCH)
 # INCLUDES is a list of directories containing header files
 #---------------------------------------------------------------------------------
 TARGET		:=	citro3d
-BUILD		:=	build
-SOURCES		:=	source \
-				source/maths
+SOURCES		:=	source source/maths
 DATA		:=	data
 INCLUDES	:=	include
 
@@ -33,9 +31,9 @@ INCLUDES	:=	include
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS	:=	-g -Wall -Werror -O2 -mword-relocations \
-			-fomit-frame-pointer -ffunction-sections \
-			$(ARCH)
+CFLAGS	:=	-g -Wall -Werror -mword-relocations \
+			-ffunction-sections -fdata-sections \
+			$(ARCH) $(BUILD_CFLAGS)
 
 CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DCITRO3D_BUILD
 
@@ -56,12 +54,8 @@ LIBDIRS	:= $(CTRULIB)
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
 
-export OUTPUT	:=	$(CURDIR)/lib/lib$(TARGET).a
-
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
-
-export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
 CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
@@ -87,12 +81,15 @@ export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
 
 export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-			-I$(CURDIR)/$(BUILD)
+			-I.
 
-.PHONY: $(BUILD) clean all
+.PHONY: clean all doc
 
 #---------------------------------------------------------------------------------
-all: $(BUILD)
+all: lib/libcitro3d.a lib/libcitro3dd.a
+
+doc:
+	@doxygen Doxyfile
 
 dist-bin: all
 	@tar --exclude=*~ -cjf citro3d-$(VERSION).tar.bz2 include lib
@@ -103,20 +100,36 @@ dist-src:
 dist: dist-src dist-bin
 
 install: dist-bin
-	mkdir -p $(DEVKITPRO)/libctru
-	bzip2 -cd citro3d-$(VERSION).tar.bz2 | tar -xf - -C $(DEVKITPRO)/libctru
+	mkdir -p $(DESTDIR)$(DEVKITPRO)/libctru
+	bzip2 -cd citro3d-$(VERSION).tar.bz2 | tar -xf - -C $(DESTDIR)$(DEVKITPRO)/libctru
 
 lib:
 	@[ -d $@ ] || mkdir -p $@
 
-$(BUILD): lib
+release:
 	@[ -d $@ ] || mkdir -p $@
-	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+
+debug:
+	@[ -d $@ ] || mkdir -p $@
+
+lib/libcitro3d.a : lib release $(SOURCES) $(INCLUDES)
+	@$(MAKE) BUILD=release OUTPUT=$(CURDIR)/$@ \
+	BUILD_CFLAGS="-DNDEBUG=1 -O2 -fomit-frame-pointer" \
+	DEPSDIR=$(CURDIR)/release \
+	--no-print-directory -C release \
+	-f $(CURDIR)/Makefile
+
+lib/libcitro3dd.a : lib debug $(SOURCES) $(INCLUDES)
+	@$(MAKE) BUILD=debug OUTPUT=$(CURDIR)/$@ \
+	BUILD_CFLAGS="-DDEBUG=1 -Og" \
+	DEPSDIR=$(CURDIR)/debug \
+	--no-print-directory -C debug \
+	-f $(CURDIR)/Makefile
 
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) lib
+	@rm -fr release debug lib
 
 #---------------------------------------------------------------------------------
 else

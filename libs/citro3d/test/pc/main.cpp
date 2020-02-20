@@ -737,30 +737,43 @@ check_matrix(generator_t &gen, distribution_t &dist)
 
       assert(Mtx_MultiplyFVecH(&m, FVec3_New(v.x, v.y, v.z)) == glm::mat4x3(g)*v);
     }
-    
+
     // check matrix transpose
     {
       C3D_Mtx m;
       glm::mat4 check;
-      
+
       randomMatrix(m, gen, dist);
-      
+
       //Reducing rounding errors, and copying the values over to the check matrix.
       for(size_t i = 0; i < 16; ++i)
       {
         m.m[i] = static_cast<int>(m.m[i]);
       }
-      
+
       check = loadMatrix(m);
 
       Mtx_Transpose(&m);
+      assert(m == glm::transpose(check));
       Mtx_Transpose(&m);
-      assert(m == glm::transpose(glm::transpose(check)));
+      assert(m == check);
 
-      //Comparing inverse(transpose(m)) == transpose(inverse(m)) 
-      Mtx_Transpose(&m);
-      Mtx_Inverse(&m);
-      assert(m == glm::transpose(glm::inverse(check)));
+      //Comparing inverse(transpose(m)) == transpose(inverse(m))
+      C3D_Mtx m2;
+      Mtx_Copy(&m2, &m);
+      Mtx_Transpose(&m2);
+      if(Mtx_Inverse(&m2))
+      {
+        assert(m2 == glm::inverse(glm::transpose(check)));
+        assert(m2 == glm::transpose(glm::inverse(check)));
+      }
+      Mtx_Copy(&m2, &m);
+      if(Mtx_Inverse(&m2))
+      {
+        Mtx_Transpose(&m2);
+        assert(m2 == glm::inverse(glm::transpose(check)));
+        assert(m2 == glm::transpose(glm::inverse(check)));
+      }
     }
   }
 }
@@ -940,13 +953,15 @@ check_quaternion(generator_t &gen, distribution_t &dist)
 
     // check conversion to matrix
     {
-      C3D_FQuat q = randomQuat(gen, dist);
+      C3D_FQuat q = Quat_Normalize(randomQuat(gen, dist));
       glm::quat g = loadQuat(q);
 
       C3D_Mtx m;
       Mtx_FromQuat(&m, q);
-
       assert(m == glm::mat4_cast(g));
+
+      C3D_FQuat q2 = Quat_FromMtx(&m);
+      assert(q2 == q || q2 == FVec4_Negate(q));
     }
   }
 }

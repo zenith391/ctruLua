@@ -1,4 +1,4 @@
-#include "context.h"
+#include "internal.h"
 
 void C3D_DrawElements(GPU_Primitive_t primitive, int count, int type, const void* indices)
 {
@@ -10,7 +10,7 @@ void C3D_DrawElements(GPU_Primitive_t primitive, int count, int type, const void
 	C3Di_UpdateContext();
 
 	// Set primitive type
-	GPUCMD_AddMaskedWrite(GPUREG_PRIMITIVE_CONFIG, 2, primitive);
+	GPUCMD_AddMaskedWrite(GPUREG_PRIMITIVE_CONFIG, 2, primitive != GPU_TRIANGLES ? primitive : GPU_GEOMETRY_PRIM);
 	// Start a new primitive (breaks off a triangle strip/fan)
 	GPUCMD_AddWrite(GPUREG_RESTART_PRIMITIVE, 1);
 	// Configure the index buffer
@@ -39,6 +39,8 @@ void C3D_DrawElements(GPU_Primitive_t primitive, int count, int type, const void
 	}
 	// Clear the post-vertex cache
 	GPUCMD_AddWrite(GPUREG_VTX_FUNC, 1);
+	GPUCMD_AddMaskedWrite(GPUREG_PRIMITIVE_CONFIG, 0x8, 0);
+	GPUCMD_AddMaskedWrite(GPUREG_PRIMITIVE_CONFIG, 0x8, 0);
 
 	C3Di_GetContext()->flags |= C3DiF_DrawUsed;
 }

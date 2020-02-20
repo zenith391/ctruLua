@@ -31,7 +31,7 @@ TARGET		:=	ctruLua
 BUILD		:=	build
 SOURCES		:=	source libs/lua-5.3.3/src libs/tremor
 DATA		:=	data
-INCLUDES	:=	include libs/lua-5.3.3/src libs/lzlib libs/tremor
+INCLUDES	:=	include libs/lua-5.3.3/src libs/3ds_portlibs/zlib-1.2.8 libs/lzlib libs/tremor libs/3ds_portlibs/libogg-1.3.2/include
 #ROMFS		:=	romfs
 ROOT			:=	sdmc:/3ds/ctruLua/
 
@@ -69,14 +69,14 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -lsfil -ljpeg -lsftd -lfreetype -lpng -lz -lsf2d -lcitro3d -lctru -logg -lm
+LIBS	:= -ljpeg -lfreetype -lpng16 -lz -lsf2d -lcitro3d -lctru -logg -lm
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
 LIBDIRS	:= $(CTRULIB) $(PORTLIBS) \
-			$(CURDIR)/libs/3ds_portlibs/build \
+			$(CURDIR)/libs/3ds_portlibs/ \
 			$(CURDIR)/libs/sf2dlib/libsf2d \
 			$(CURDIR)/libs/sftdlib/libsftd \
 			$(CURDIR)/libs/sfillib/libsfil \
@@ -124,7 +124,8 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
 			-I$(CURDIR)/$(BUILD)
 
-export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
+export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/.libs)
+export LIBPATHS := $(LIBPATHS) -L$(DEVKITPRO)/portlibs/armv6k/lib
 
 ifeq ($(strip $(ICON)),)
 	icons := $(wildcard *.png)
@@ -168,18 +169,19 @@ $(BUILD)-cia:
 
 build-portlibs:
 	@make -C libs/3ds_portlibs zlib install-zlib freetype libjpeg-turbo libpng libogg install
+	rm $(DEVKITPRO)/portlibs/armv6k/lib/freetype.so # to avoid LD errors
 
 build-citro3d:
-	@make -C libs/citro3d build
+	@make -C libs/citro3d install
 
-build-sf2dlib:
-	@make -C libs/sf2dlib/libsf2d build
+build-sf2dlib: # WILL BE REPLACED!!
+	#@make -C libs/sf2dlib/libsf2d build
 
-build-sftdlib:
-	@make -C libs/sftdlib/libsftd build
+build-sftdlib: # REQUIRES SF2D and will be REPLACED!!
+	#@make -C libs/sftdlib/libsftd build
 
-build-sfillib:
-	@make -C libs/sfillib/libsfil build
+build-sfillib: # same as above
+	#@make -C libs/sfillib/libsfil build
 
 build-all:
 	@echo Building 3ds_portlibs...
@@ -251,6 +253,9 @@ clean-doc-html:
 
 clean-doc-st:
 	@rm -rf doc/sublimetext
+
+tt:
+	echo $(LIBPATHS)
 
 
 #---------------------------------------------------------------------------------
